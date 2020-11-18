@@ -99,7 +99,7 @@ function getSubscriptionsBySite( subscriptions ) {
 }
 
 function getName( purchase ) {
-	if ( isDomainRegistration( purchase ) ) {
+	if ( isDomainRegistration( purchase ) || isDomainMapping( purchase ) ) {
 		return purchase.meta;
 	}
 
@@ -659,6 +659,10 @@ function purchaseType( purchase ) {
 	}
 
 	if ( isDomainRegistration( purchase ) ) {
+		return purchase.productName;
+	}
+
+	if ( isDomainMapping( purchase ) ) {
 		return purchase.productName;
 	}
 
