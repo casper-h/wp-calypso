@@ -3,19 +3,16 @@
 /**
  * External dependencies
  */
-import { SubTitle, Title } from '@automattic/onboarding';
+import * as React from 'react';
+import { Link } from 'react-router-dom';
+import { ActionButtons, NextButton, SubTitle, Title } from '@automattic/onboarding';
 import { __, sprintf } from '@wordpress/i18n';
 import { createInterpolateElement } from '@wordpress/element';
 import { TextControl, SVG, Path, Tooltip, Circle, Rect } from '@wordpress/components';
-import React, { ReactNode, useContext, useEffect } from 'react';
 import DomainPicker from '@automattic/domain-picker';
 import { Icon, check } from '@wordpress/icons';
-import { Link } from 'react-router-dom';
 import { useSelect, useDispatch } from '@wordpress/data';
-import FocusedLaunchSummaryItem, {
-	LeadingContentSide,
-	TrailingContentSide,
-} from './focused-launch-summary-item';
+
 /**
  * Internal dependencies
  */
@@ -27,9 +24,13 @@ import {
 	useDomainSelection,
 	useSite,
 	usePlans,
+	useOnLaunch,
 } from '../../hooks';
-
-import { LAUNCH_STORE } from '../../stores';
+import FocusedLaunchSummaryItem, {
+	LeadingContentSide,
+	TrailingContentSide,
+} from './focused-launch-summary-item';
+import { LAUNCH_STORE, SITE_STORE } from '../../stores';
 import LaunchContext from '../../context';
 import { isDefaultSiteTitle } from '../../utils';
 import { FOCUSED_LAUNCH_FLOW_ID } from '../../constants';
@@ -51,8 +52,8 @@ const info = (
 );
 
 type SummaryStepProps = {
-	input: ReactNode;
-	commentary?: ReactNode;
+	input: React.ReactNode;
+	commentary?: React.ReactNode;
 };
 
 const SummaryStep: React.FunctionComponent< SummaryStepProps > = ( { input, commentary } ) => (
@@ -273,7 +274,7 @@ const PlanStep: React.FunctionComponent< PlanStepProps > = ( {
 
 	const sitePlan = useSite().sitePlan;
 
-	useEffect( () => {
+	React.useEffect( () => {
 		// To keep the launch store state valid,
 		// unselect the free plan if the user selected a paid domain.
 		// free plans don't support paid domains.
@@ -439,38 +440,49 @@ const PlanStep: React.FunctionComponent< PlanStepProps > = ( {
 type StepIndexRenderFunction = ( renderOptions: {
 	stepIndex: number;
 	forwardStepIndex: boolean;
-} ) => ReactNode;
+} ) => React.ReactNode;
 
 const Summary: React.FunctionComponent = () => {
-	const { title, updateTitle, saveTitle, isSiteTitleStepVisible, showSiteTitleStep } = useTitle();
+	const hasSelectedDomain = useSelect( ( select ) => select( LAUNCH_STORE ).hasSelectedDomain() );
+	const selectedDomain = useSelect( ( select ) => select( LAUNCH_STORE ).getSelectedDomain() );
+	const selectedPlan = useSelect( ( select ) => select( LAUNCH_STORE ).getSelectedPlan() );
 
+	const { launchedSite } = useDispatch( SITE_STORE );
+	const { setModalDismissible, showModalTitle } = useDispatch( LAUNCH_STORE );
+
+	const { title, updateTitle, saveTitle, isSiteTitleStepVisible, showSiteTitleStep } = useTitle();
 	const { sitePrimaryDomain, siteSubdomain, hasPaidDomain } = useSiteDomains();
 	const { onDomainSelect, onExistingSubdomainSelect } = useDomainSelection();
-	const selectedDomain = useSelect( ( select ) => select( LAUNCH_STORE ).getSelectedDomain() );
 	const { domainSearch, isLoading } = useDomainSearch();
+	const { isPaidPlan: hasPaidPlan } = useSite();
 
-	const site = useSite();
+	const { locale, siteId } = React.useContext( LaunchContext );
+	const [ isLaunching, setIsLaunching ] = React.useState( false );
 
-	const { locale } = useContext( LaunchContext );
-
-	const { setModalDismissible, showModalTitle } = useDispatch( LAUNCH_STORE );
+	useOnLaunch();
 
 	// When the summary view is active, the modal should be dismissible, and
 	// the modal title should be visible
-	useEffect( () => {
+	React.useEffect( () => {
 		setModalDismissible();
 		showModalTitle();
 	}, [ setModalDismissible, showModalTitle ] );
 
 	// If the user needs to change the site title, always show the site title
 	// step to the user when in this launch flow.
-	useEffect( () => {
+	React.useEffect( () => {
 		if ( ! isSiteTitleStepVisible && isDefaultSiteTitle( { currentSiteTitle: title } ) ) {
 			showSiteTitleStep();
 		}
 	}, [ title, showSiteTitleStep, isSiteTitleStepVisible ] );
 
-	const hasPaidPlan = site.isPaidPlan;
+	const handleLaunch = () => {
+		setIsLaunching( true );
+
+		// @TODO: replace with 'launcheSite' action
+		// this won't actually launch the site. it is the success action dispatch after lunch
+		launchedSite( siteId );
+	};
 
 	// Prepare Steps
 	const renderSiteTitleStep: StepIndexRenderFunction = ( { stepIndex, forwardStepIndex } ) => (
@@ -555,8 +567,15 @@ const Summary: React.FunctionComponent = () => {
 				} )
 			) }
 
-			{ /* @TODO: placeholder for https://github.com/Automattic/wp-calypso/issues/47392 */ }
-			<Link to={ Route.Success }>{ __( 'Launch your site', __i18n_text_domain__ ) }</Link>
+			<ActionButtons>
+				<NextButton
+					className="focused-launch-summary__launch-button"
+					disabled={ ! title || ! hasSelectedDomain || ! selectedPlan || isLaunching }
+					onClick={ handleLaunch }
+				>
+					{ __( 'Launch your site', __i18n_text_domain__ ) }
+				</NextButton>
+			</ActionButtons>
 		</div>
 	);
 };
