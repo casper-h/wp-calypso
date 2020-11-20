@@ -1,4 +1,10 @@
 /**
+ * External dependencies
+ */
+import React from 'react';
+import { createHigherOrderComponent } from '@wordpress/compose';
+
+/**
  * Internal dependencies
  */
 import { useLocale } from './locale-context';
@@ -139,3 +145,12 @@ export function useLocalizeUrl(): ( fullUrl: string, locale?: Locale ) => string
 		return localizeUrl( fullUrl, providerLocale );
 	};
 }
+
+export const withLocalizeUrl = createHigherOrderComponent< {
+	localizeUrl: ( fullUrl: string, locale?: Locale ) => string;
+} >( ( InnerComponent ) => {
+	return ( props ) => {
+		const localizeUrl = useLocalizeUrl();
+		return <InnerComponent localizeUrl={ localizeUrl } { ...props } />;
+	};
+}, 'withLocalizeUrl' );
